@@ -238,28 +238,20 @@ hr.newgridhrline {
     font-size: 12px;
 }
 
-.submode_button {
-    position: relative;
-    text-align: left;
-    padding-top: 5px;
-    font-size: 12px;
-    height: 35px;
+#stylemode_button,
+#submode_button {
+    line-height: 35px;
 }
 
-.submode_button label {
-    font-size: 12px;
+#stylemode_button *,
+#submode_button * {
+    line-height: 25px;
+    vertical-align: middle;
 }
 
-.stylemode_button {
-    position: relative;
-    text-align: left;
-    padding-bottom: -5px;
-    font-size: 12px;
-    height: 35px;
-}
-
-.stylemode_button label {
-    font-size: 14px;
+#stylemode_button sup,
+#submode_button sup {
+    vertical-align: super;
 }
 
 .label_mode {
@@ -1053,7 +1045,8 @@ body textarea {
 }
 
 #closeBtn_input1,
-#closeBtn_input2 {
+#closeBtn_input2,
+#closeBtn_input3 {
     width: 40px;
 }
 
@@ -1287,14 +1280,37 @@ input[type=number] {
 }
 
 #settings-table td {
-    border: 0;
     padding: 3px;
-    height: 1.5em;
-    font-size: 1.3em;
+    font-size: 1.1em;
+    line-height: 1.1;
+}
+
+#settings-table tr+tr td {
+    border-top: 1px solid var(--fgSubtle);
 }
 
 #settings-table select {
+    background: var(--bgMain);
+}
+
+#settings-table button {
+    background: var(--bgMedium);
+}
+
+#settings-table button:hover {
+    background: var(--bgHover);
+}
+
+#settings-table select,
+#settings-table button {
+    color: var(--fgMain);
+    border: 1px solid var(--fgMedium);
+    display: block;
     font-size: .9em;
+    width: 100%;
+    margin: 2px 0;
+    padding: 2px;
+    border-radius: 3px;
 }
 
 #sol_or_lb,
@@ -1310,18 +1326,16 @@ sup {
 #page_help {
     position: relative;
     top: -1px;
-    background: url(images/help_icon.png);
-    background-repeat: no-repeat;
-    background-size: 100% 100%;
-    background-position: center;
+    background-color: var(--blueLightVery);
     vertical-align: middle;
-    width: 1.2em;
-    height: 1.2em;
+    font-weight: bold;
+    font-size: 0.7em;
     margin: 0;
-    padding: 0;
-    aspect-ratio: 1;
+    padding: 2px 5px;
     border: none;
+    border-radius: .5em;
     cursor: pointer;
+    text-decoration: underline;
 }
 
 /* todo -- tie to selected theme */
@@ -1388,6 +1402,84 @@ sup {
     margin-left: -7px;
 }
 
+#ruletext {
+    display: none;
+}
+
+#puzzlerules {
+    display: none;
+}
+
+#puzzlerules.rules-present {
+    display: inline-block;
+}
+
+#puzzletitle,
+#puzzleauthor {
+    display: block;
+}
+
+#puzzletitle:empty,
+#puzzleauthor:empty {
+    display: none !important;
+}
+
+#puzzletitle::before {
+    content: "Title: ";
+}
+
+#puzzleauthor::before {
+    content: "Author: ";
+}
+
+#app-container.streaming-mode {
+    display: flex;
+    justify-content: left;
+    align-items: flex-start;
+    flex-direction: row-reverse;
+    margin: 35px 285px 0 30px !important;
+}
+
+#app-container.streaming-mode #puzzletitle::before,
+#app-container.streaming-mode #puzzleauthor::before {
+    display: none;
+}
+
+#app-container.streaming-mode #puzzletitle::after {
+    content: " - ";
+}
+
+#app-container.streaming-mode #puzzletitle,
+#app-container.streaming-mode #puzzleauthor {
+    display: inline;
+    font-size: 2em;
+}
+
+#app-container.streaming-mode #puzzlerules {
+    display: none;
+}
+
+#app-container.streaming-mode #puzzleinfo {
+    width: auto;
+}
+
+#app-container.streaming-mode #tool-container {
+    margin-left: 20px;
+    margin-right: 20px;
+    margin-top: 6px;
+}
+
+#app-container.streaming-mode #buttons {
+    width: 100%;
+    min-height: 200px;
+}
+
+#app-container.streaming-mode #ruletext {
+    display: block;
+    user-select: text;
+    margin-top: 20px;
+}
+
 @media (min-width: 850px) {
     #app-container.responsive {
         display: grid;
@@ -1439,6 +1531,14 @@ sup {
     }
 }
 
+@media (max-width: 850px) {
+
+    #app-container.responsive #mode_txt_space,
+    #app-container.responsive #mode_break {
+        display: inline;
+    }
+}
+
 @media (max-width: 600px) {
     body {
         margin: 0 auto;
@@ -1479,8 +1579,4 @@ sup {
     margin: 5px;
     font-size: 30px;
     padding: 2px;
-}
-
-#replay_beta_warning {
-    color: var(--red);
 }

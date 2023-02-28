@@ -5,8 +5,12 @@ function boot() {
     obj.appendChild(canvas);
     boot_parameters();
     init_genre_tags();
+    set_answer_setting_table_to("and");
 
     var urlParam = location.search.substring(1);
+    if (!urlParam && location.hash) {
+        urlParam = location.hash.substring(1);
+    }
     if (urlParam) {
 
         let param = urlParam.split('&');
@@ -23,7 +27,14 @@ function boot() {
         // Decrypt puzzle data
         let local_data = localStorage.getItem(hash);
         if (local_data && local_data.includes('&p=')) {
-            load(local_data.split('?')[1], type = 'localstorage', origurl = paramArray.p);
+            // This is to account for old links and new links together
+            var url;
+            if (local_data.includes("#")) {
+                url = local_data.split('#')[1];
+            } else {
+                url = local_data.split('?')[1];
+            }
+            load(url, type = 'localstorage', origurl = paramArray.p);
         } else {
             load(urlParam);
         }
@@ -127,6 +138,33 @@ function set_genre_tags(user_tags) {
     $('#genre_tags_opt').trigger("change"); // Update selection
 }
 
+function set_answer_setting_table_to(and_or) {
+    const table = document.getElementById("answersetting");
+
+    let display;
+    let invisible;
+    if (and_or === "and") {
+        document.getElementById('and_tmp').checked = true;
+        display = ["visible", "none"];
+        invisible = [...table.getElementsByClassName("solcheck_or")];
+    } else if (and_or === "or") {
+        document.getElementById('or_tmp').checked = true;
+        display = ["none", "visible"];
+        invisible = [...table.getElementsByClassName("solcheck")];
+    } else {
+        return;
+    }
+
+    // Ensure there are no invisible checked boxes
+    invisible.forEach((elem) => { elem.checked = false });
+
+    // Show only the options relevant to All/Any constraints
+    const ands = table.getElementsByClassName("solcheck_show_and");
+    const ors = table.getElementsByClassName("solcheck_show_or");
+    [...ands].forEach((elem) => elem.setAttribute("style", `display: ${display[0]};`));
+    [...ors].forEach((elem) => elem.setAttribute("style", `display: ${display[1]};`));
+}
+
 function create_newboard() {
 
     var size = UserSettings.displaysize;
@@ -148,7 +186,7 @@ function create_newboard() {
         pu.mode_set(pu.mode[pu.mode.qa].edit_mode); //include redraw
 
         // constraints
-        if (gridtype === "square" || gridtype === "sudoku" || gridtype === "kakuro") {
+        if (gridtype === "square" || gridtype === "sudoku" || gridtype === "kakuro" || gridtype === "hex") {
             document.getElementById('constraints').style.display = 'inline';
             $('select').toggleSelect2(true);
         } else {
@@ -1489,11 +1527,13 @@ function savetext() {
 function io_sudoku() {
     document.getElementById("modal-input").style.display = 'block';
     document.getElementById("iostring").placeholder = "Enter digits (0-9, 0 or . for an empty cell, no spaces). The number of digits entered should be a perfect square. Default expected length is 81 digits (9x9 sudoku)";
+    document.getElementById("iostring").focus();
 }
 
 function i_url() {
     document.getElementById("modal-load").style.display = 'block';
     document.getElementById("urlstring").placeholder = "In case of \"URL too long Error\". Type/Paste Penpa-edit URL here and click on Load button. You can also load puzz.link puzzles here";
+    document.getElementById("urlstring").focus();
 }
 
 function p_settings() {
@@ -1555,6 +1595,8 @@ function savetext_withreplay() {
 }
 
 async function request_shortlink(url) {
+    // The # content cannot be sent to server, So if anyone wants to use automatic shorten, use ?
+    url = url.replace("#", "?");
     try {
         return $.get('https://tinyurl.com/api-create.php?url=' + url, function(link, status) {
             if (status === "success") {
@@ -1750,7 +1792,7 @@ function export_sudoku() {
 function import_url(urlstring) {
     urlstring = urlstring || document.getElementById("urlstring").value;
     if (urlstring !== "") {
-        if (urlstring.indexOf("/penpa-edit/?") !== -1) {
+        if (urlstring.indexOf("/penpa-edit/") !== -1) {
 
             let param = urlstring.split('&');
             let paramArray = [];
@@ -1766,9 +1808,20 @@ function import_url(urlstring) {
             // Decrypt puzzle data
             let local_data = localStorage.getItem(hash);
             if (local_data && local_data.includes('&p=')) {
-                load(local_data.split('?')[1], type = 'localstorage', origurl = paramArray.p);
+                // This is to account for old links and new links together
+                var url;
+                if (local_data.includes("#")) {
+                    url = local_data.split('#')[1];
+                } else {
+                    url = local_data.split('?')[1];
+                }
+                load(url, type = 'localstorage', origurl = paramArray.p);
             } else {
-                urlstring = urlstring.split("/penpa-edit/?")[1];
+                if (urlstring.includes("#")) {
+                    urlstring = urlstring.split("/penpa-edit/#")[1];
+                } else {
+                    urlstring = urlstring.split("/penpa-edit/?")[1];
+                }
                 load(urlstring, 'local');
             }
 
@@ -1776,7 +1829,7 @@ function import_url(urlstring) {
             if (UserSettings.tab_settings > 0) {
                 selectBox.setValue(UserSettings.tab_settings);
             }
-        } else if (urlstring.match(/\/puzz.link\/p\?|pzprxs\.vercel\.app\/p\?|\/pzv\.jp\/p\.html\?/)) {
+        } else if (urlstring.match(/\/puzz.link\/p\?|pzprxs\.vercel\.app\/p\?|\/pzv\.jp\/p(\.html)?\?/)) {
             decode_puzzlink(urlstring);
             document.getElementById("modal-load").style.display = 'none';
         } else {
@@ -1847,16 +1900,18 @@ function load(urlParam, type = 'url', origurl = null) {
     if (rtext_para[14] && rtext_para[14] == "1") { document.getElementById("nb_sudoku4").checked = true; }
     if (rtext_para[15]) {
         let ptitle = rtext_para[15].replace(/%2C/g, ',');
+        ptitle = ptitle.replace(/^Title\:\s/, '');
         if (ptitle !== "Title: ") {
             document.getElementById("puzzletitle").innerHTML = ptitle;
-            document.getElementById("saveinfotitle").value = ptitle.slice(7); // text after "Title: "
+            document.getElementById("saveinfotitle").value = ptitle;
         }
     }
     if (rtext_para[16]) {
         let pauthor = rtext_para[16].replace(/%2C/g, ',')
-        if (pauthor != "Author: ") {
+        pauthor = pauthor.replace(/^Author\:\s/, '');
+        if (pauthor != "") {
             document.getElementById("puzzleauthor").innerHTML = pauthor;
-            document.getElementById("saveinfoauthor").value = pauthor.slice(8); // text after "Author: "
+            document.getElementById("saveinfoauthor").value = pauthor;
         }
     }
     if (rtext_para[17] && rtext_para[17] !== "") {
@@ -1877,9 +1932,10 @@ function load(urlParam, type = 'url', origurl = null) {
     UserSettings.loadFromCookies("others");
 
     if (rtext_para[18] && rtext_para[18] !== "") {
-        document.getElementById("puzzlerules").style.display = "inline";
+        document.getElementById("puzzlerules").classList.add("rules-present");
         pu.rules = rtext_para[18].replace(/%2C/g, ',').replace(/%2D/g, '<br>').replace(/%2E/g, '&').replace(/%2F/g, '=');
-        document.getElementById("saveinforules").value = rtext_para[18].replace(/%2C/g, ',').replace(/%2D/g, '\n').replace(/%2E/g, '&').replace(/%2F/g, '=');
+        document.getElementById("ruletext").innerHTML = pu.rules;
+        document.getElementById("saveinforules").value = pu.rules.replace(/<br>/g, '\n');
     }
 
     // Border button status
@@ -1900,6 +1956,14 @@ function load(urlParam, type = 'url', origurl = null) {
         pu.version = JSON.parse(rtext[10]);
     } else {
         pu.version = [0, 0, 0]; // To handle all the old links
+    }
+
+    // custom answer check message // Moving earlier to set the value before check_solution is called for first time
+    if (rtext[18] && rtext[18] !== "") {
+        let custom_message = rtext[18].replace(/%2C/g, ',').replace(/%2D/g, '<br>').replace(/%2E/g, '&').replace(/%2F/g, '=');
+        if (custom_message != "false") {
+            document.getElementById("custom_message").value = custom_message;
+        }
     }
 
     pu.theta = parseInt(rtext_para[4]);
@@ -1979,7 +2043,63 @@ function load(urlParam, type = 'url', origurl = null) {
         pu.user_tags = JSON.parse(rtext[17]);
     }
 
+    // Detect tag using title information if author did not define tags
+    // This is to add tags for the previously created URLs
+    if (pu.user_tags.length === 0) {
+        let wordsRegex = /([^\x00-\x7F]|\w)+/g;
+        let title = document.getElementById("saveinfotitle").value;
+        let title_words = title.match(wordsRegex);
+        let allow_genres = ["arrow", "thermo", "even", "consecutive", "killer", "nonconsecutive"];
+
+        // find position of "sudoku"
+        if (title_words) {
+            let sudoku_index = title_words.findIndex(element => {
+                return element.toLowerCase() === "sudoku";
+            });
+
+            if (sudoku_index === 0) {
+                pu.user_tags[0] = "classic";
+            } else if ((sudoku_index === 1 || sudoku_index === 2) &&
+                (allow_genres.includes(title_words[0].toLowerCase()))) {
+                switch (title_words[0].toLowerCase()) {
+                    case "consecutive":
+                        if (title_words[1].toLowerCase() == "pairs") {
+                            pu.user_tags[0] = "consecutivepairs";
+                        } else if (title_words[1].toLowerCase() == "clone") {
+                            pu.user_tags[0] = "classic";
+                        } else {
+                            pu.user_tags[0] = "consecutive";
+                        }
+                        break;
+                    case "nonconsecutive":
+                        pu.user_tags[0] = "nonconsecutive";
+                        break;
+                    default:
+                        pu.user_tags[0] = "classic";
+                        break;
+                }
+            } else if (title_words[0].toLowerCase() === "star" && title_words[1].toLowerCase() === "battle") {
+                pu.user_tags[0] = "starbattle";
+            } else if (title_words[0].toLowerCase() === "tomtom") {
+                pu.user_tags[0] = "tomtom";
+            } else if (title_words[0].toLowerCase() === "fillomino") {
+                pu.user_tags[0] = "fillomino";
+            } else if (title_words[0].toLowerCase() === "pentominous") {
+                pu.user_tags[0] = "pentominous";
+            } else if (title_words[0].toLowerCase() === "spiral" && title_words[1].toLowerCase() === "galaxies") {
+                pu.user_tags[0] = "spiralgalaxies";
+            } else if (title_words[0].toLowerCase() === "araf") {
+                pu.user_tags[0] = "araf";
+            }
+        }
+    }
+
     set_genre_tags(pu.user_tags);
+
+    // Set some genre specific settings
+    if ($('#genre_tags_opt').select2("val").includes("alphabet")) {
+        UserSettings.disable_shortcuts = 2;
+    }
 
     if (paramArray.m === "edit") { //edit_mode
         var mode = JSON.parse(rtext[2]);
@@ -1997,13 +2117,6 @@ function load(urlParam, type = 'url', origurl = null) {
             pu.pu_a.polygon = [];
         }
 
-        // custom color
-        if (rtext[13]) {
-            let parsedValue = JSON.parse(rtext[13]);
-            if (parsedValue === "true" || parsedValue === 1) {
-                document.getElementById("custom_color_opt").value = 2;
-            }
-        }
         if (rtext[14]) {
             pu.pu_q_col = JSON.parse(rtext[14]);
             pu.pu_a_col = JSON.parse(rtext[15]);
@@ -2131,14 +2244,6 @@ function load(urlParam, type = 'url', origurl = null) {
             pu.pu_q.polygon = [];
         }
 
-        // custom color
-        if (rtext[13]) {
-            let parsedValue = JSON.parse(rtext[13]);
-            if (parsedValue === "true" || parsedValue === 1) {
-                document.getElementById("custom_color_opt").value = 2;
-            }
-        }
-
         if (rtext[14]) {
             pu.pu_q_col = JSON.parse(rtext[14]);
             if (!pu.pu_q_col.polygon) {
@@ -2208,6 +2313,14 @@ function load(urlParam, type = 'url', origurl = null) {
     pu.make_frameline(); // Draw Board
     panel_pu.draw_panel();
 
+    // custom color
+    if (rtext[13]) {
+        let parsedValue = JSON.parse(rtext[13]);
+        if (parsedValue === "true" || parsedValue === 1) {
+            UserSettings.custom_colors_on = 2;
+        }
+    }
+
     // submode, style settings
     if (rtext[11]) {
         pu.mode = JSON.parse(rtext[11]);
@@ -2250,13 +2363,9 @@ function load(urlParam, type = 'url', origurl = null) {
         for (var i = 0; i < settingstatus.length; i++) {
             settingstatus[i].checked = answersetting[settingstatus[i].id];
         }
-    }
-
-    // custom answer check message
-    if (rtext[18] && rtext[18] !== "") {
-        let custom_message = rtext[18].replace(/%2C/g, ',').replace(/%2D/g, '<br>').replace(/%2E/g, '&').replace(/%2F/g, '=');
-        if (custom_message != "false") {
-            document.getElementById("custom_message").value = custom_message;
+        if (pu.multisolution) {
+            set_answer_setting_table_to('or');
+            document.getElementById('or_tmp').checked = true;
         }
     }
 
@@ -2399,7 +2508,7 @@ function load(urlParam, type = 'url', origurl = null) {
         // Hide title, author, rules
         document.getElementById("puzzletitle").style.display = 'none';
         document.getElementById("puzzleauthor").style.display = 'none';
-        document.getElementById("puzzlerules").style.display = 'none';
+        document.getElementById("puzzlerules").classList.remove("rules-present");
 
         // Update title
         document.getElementById("title").innerHTML = "Replay Mode"
@@ -2410,7 +2519,7 @@ function load(urlParam, type = 'url', origurl = null) {
             pu.puzzleinfo = qstr;
             let disptext = '';
             if (document.getElementById("saveinfotitle").value) {
-                disptext += 'Title: ' + document.getElementById("saveinfotitle").value + ' | ';
+                disptext += document.getElementById("saveinfotitle").value + ' | ';
             }
             if (document.getElementById("saveinfoauthor").value) {
                 disptext += 'Author: ' + document.getElementById("saveinfoauthor").value + ' | ';
@@ -2895,7 +3004,6 @@ function set_solvemode(type = "url") {
 
     // Save settings
     document.getElementById('save_settings_lb').style.display = 'none';
-    document.getElementById('save_settings_opt').style.display = 'none';
 
     // Middle Button settings not applicable in Solve mode
     document.getElementById('mousemiddle_settings_lb').style.display = 'none';
@@ -2942,8 +3050,32 @@ function set_contestmode() {
 }
 
 function set_solvemodetitle() {
-    document.getElementById("title").innerHTML = "Solver Mode (Answer Checking Enabled)";
+    var title = document.getElementById("title");
+    title.innerHTML = "Solver Mode (Answer Checking Enabled)";
+    title.addEventListener("click", display_answercheck);
+    title.style.textDecoration = "underline";
     document.getElementById("header").classList.add("solving");
+    document.getElementById("page_help").style.backgroundColor = Color.GREY_LIGHT;
+}
+
+function display_answercheck() {
+    // Validate at least one answer check option is selected
+    var answer_check_opt = pu.get_answercheck_settings();
+    if (answer_check_opt.answercheck_opt.length === 0) {
+        Swal.fire({
+            title: 'Swaroop says:',
+            html: 'No specific option selected by Author. Answer check looks for all the elements with appropriate accepted colors. Check <a href="https://github.com/swaroopg92/penpa-edit/blob/master/images/multisolution.PNG" target="_blank">this</a> for reference.',
+            icon: 'info',
+            confirmButtonText: 'ok 🙂',
+        })
+    } else {
+        Swal.fire({
+            title: 'Swaroop says:',
+            html: answer_check_opt.message,
+            icon: 'info',
+            confirmButtonText: 'ok 🙂',
+        })
+    }
 }
 
 function isEmpty(obj) {
@@ -4750,4 +4882,9 @@ function decrypt_data(puzdata) {
     var plain = inflate.decompress();
     let decrypted = new TextDecoder().decode(plain);
     return decrypted;
+}
+
+function hide_element_by_id(s) {
+    let element = document.getElementById(s);
+    element.parentElement.style.contentVisibility = 'hidden';
 }
