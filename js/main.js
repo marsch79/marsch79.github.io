@@ -2139,7 +2139,7 @@ onload = function() {
     liteModeButton.addEventListener('click', advancecontrol_toggle);
     selectContainer.appendChild(liteModeButton);
 
-    window.addEventListener('visibilitychange', function(e) {
+    document.addEventListener('visibilitychange', function(e) {
         if (UserSettings.reload_button === 1) {
             // Cancel the event
             e.preventDefault(); // If you prevent default behavior in Mozilla Firefox prompt will always be shown
